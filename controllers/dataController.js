@@ -1,6 +1,7 @@
 import axios from "axios"
-import sendMail from "../utils/sendMail.js"
+import sendMail from "../utils/sendMailSMTP.js"
 import FlowHistory from "../models/FlowHistory.js"
+import EmailRecipient from "../models/EmailRecipient.js"
 
 const THINGSPEAK_CHANNEL_ID = process.env.THINGSPEAK_CHANNEL_ID || "3055434"
 const THINGSPEAK_READ_API_KEY = process.env.THINGSPEAK_READ_API_KEY || "ZUS2JSR26N6Q3STH"
@@ -43,19 +44,82 @@ export const getFlowData = async (req, res) => {
       console.error("Error saving history:", historyErr.message)
     }
 
-    // Send email only if valve just closed (status = 1) and email not sent recently
-    const userEmail = req.user.email
-    const lastEmailTime = emailSentTracker.get(userEmail)
+    // Send email notifications when valve closes automatically
+    const userId = req.user._id
+    const lastEmailTime = emailSentTracker.get(userId.toString())
     const now = Date.now()
     
     if (valveStatus === "1" && (!lastEmailTime || now - lastEmailTime > 300000)) {
-      // Send email only once every 5 minutes
-      await sendMail(
-        userEmail,
-        "🚨 Water Flow Alert - Valve Closed",
-        `Hello ${req.user.name},\n\nYour water valve has been automatically closed due to continuous water flow for more than 5 minutes.\n\nFlow Rate: ${flowRate.toFixed(2)} L/min\nValve Status: CLOSED\n\nPlease check your water system and open the valve from your dashboard if everything is okay.\n\n- HydroFlow Monitor System`
-      )
-      emailSentTracker.set(userEmail, now)
+      // Send email only once every 5 minutes to avoid spam
+      
+      // Get all active email recipients for this user
+      const recipients = await EmailRecipient.find({ 
+        userId: userId, 
+        isActive: true 
+      }).lean()
+
+      // Prepare email content
+      const subject = "🚨 Water Flow Alert - Valve Closed Automatically"
+      const textContent = `Hello ${req.user.name},\n\nYour water valve has been automatically closed due to continuous water flow for more than 5 minutes.\n\nFlow Rate: ${flowRate.toFixed(2)} L/min\nValve Status: CLOSED\nTimestamp: ${new Date().toLocaleString()}\n\nPlease check your water system and open the valve from your dashboard if everything is okay.\n\n- HydroFlow Monitor System`
+      
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+          <div style="background-color: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #dc2626; margin-top: 0;">🚨 Water Flow Alert</h2>
+            <p style="font-size: 16px; color: #333;">Hello <strong>${req.user.name}</strong>,</p>
+            <p style="font-size: 16px; color: #333;">Your water valve has been <strong>automatically closed</strong> due to continuous water flow for more than 5 minutes.</p>
+            <div style="background-color: #fee2e2; padding: 15px; border-left: 4px solid #dc2626; margin: 20px 0;">
+              <p style="margin: 5px 0;"><strong>Flow Rate:</strong> ${flowRate.toFixed(2)} L/min</p>
+              <p style="margin: 5px 0;"><strong>Valve Status:</strong> CLOSED</p>
+              <p style="margin: 5px 0;"><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+            </div>
+            <p style="font-size: 16px; color: #333;">Please check your water system and open the valve from your dashboard if everything is okay.</p>
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">- HydroFlow Monitor System</p>
+          </div>
+        </div>
+      `
+
+      // Send email to the logged-in user
+      try {
+        await sendMail(req.user.email, subject, textContent, htmlContent)
+        console.log(`✅ Valve closure alert sent to user: ${req.user.email}`)
+      } catch (emailErr) {
+        console.error(`❌ Failed to send email to user: ${req.user.email}`, emailErr.message)
+      }
+
+      // Send email to all additional recipients
+      for (const recipient of recipients) {
+        try {
+          const recipientText = `Hello ${recipient.name},\n\nThis is an automated alert from HydroFlow Monitor System.\n\nThe water valve has been automatically closed due to continuous water flow for more than 5 minutes.\n\nFlow Rate: ${flowRate.toFixed(2)} L/min\nValve Status: CLOSED\nTimestamp: ${new Date().toLocaleString()}\n\nAccount Owner: ${req.user.name} (${req.user.email})\n\n- HydroFlow Monitor System`
+          
+          const recipientHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+              <div style="background-color: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <h2 style="color: #dc2626; margin-top: 0;">🚨 Water Flow Alert</h2>
+                <p style="font-size: 16px; color: #333;">Hello <strong>${recipient.name}</strong>,</p>
+                <p style="font-size: 16px; color: #333;">This is an automated alert from HydroFlow Monitor System.</p>
+                <p style="font-size: 16px; color: #333;">The water valve has been <strong>automatically closed</strong> due to continuous water flow for more than 5 minutes.</p>
+                <div style="background-color: #fee2e2; padding: 15px; border-left: 4px solid #dc2626; margin: 20px 0;">
+                  <p style="margin: 5px 0;"><strong>Flow Rate:</strong> ${flowRate.toFixed(2)} L/min</p>
+                  <p style="margin: 5px 0;"><strong>Valve Status:</strong> CLOSED</p>
+                  <p style="margin: 5px 0;"><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+                </div>
+                <p style="font-size: 14px; color: #666;"><strong>Account Owner:</strong> ${req.user.name} (${req.user.email})</p>
+                <p style="font-size: 14px; color: #666; margin-top: 30px;">- HydroFlow Monitor System</p>
+              </div>
+            </div>
+          `
+          
+          await sendMail(recipient.email, subject, recipientText, recipientHtml)
+          console.log(`✅ Valve closure alert sent to recipient: ${recipient.email}`)
+        } catch (emailErr) {
+          console.error(`❌ Failed to send email to recipient: ${recipient.email}`, emailErr.message)
+        }
+      }
+
+      // Update tracker to prevent spam
+      emailSentTracker.set(userId.toString(), now)
+      console.log(`📧 Total emails sent: ${recipients.length + 1} (1 user + ${recipients.length} recipients)`)
     }
 
     res.json({ 
