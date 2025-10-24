@@ -1,7 +1,6 @@
 import sendMail from '../utils/sendMailSMTP.js';
 import EmailRecipient from '../models/EmailRecipient.js';
 
-// Get all email recipients for the logged-in user
 export const getRecipients = async (req, res) => {
   try {
     const recipients = await EmailRecipient.find({ userId: req.user._id })
@@ -28,12 +27,10 @@ export const getRecipients = async (req, res) => {
   }
 };
 
-// Add a new email recipient
 export const addRecipient = async (req, res) => {
   const { email, name } = req.body;
 
   try {
-    // Validate input
     if (!email || !name) {
       return res.status(400).json({
         success: false,
@@ -41,7 +38,6 @@ export const addRecipient = async (req, res) => {
       });
     }
 
-    // Check if recipient already exists for this user
     const existingRecipient = await EmailRecipient.findOne({
       userId: req.user._id,
       email: email.toLowerCase()
@@ -54,7 +50,6 @@ export const addRecipient = async (req, res) => {
       });
     }
 
-    // Create new recipient
     const recipient = await EmailRecipient.create({
       userId: req.user._id,
       email: email.toLowerCase(),
@@ -85,13 +80,11 @@ export const addRecipient = async (req, res) => {
   }
 };
 
-// Update an email recipient
 export const updateRecipient = async (req, res) => {
   const { id } = req.params;
   const { email, name, isActive } = req.body;
 
   try {
-    // Find recipient and verify ownership
     const recipient = await EmailRecipient.findOne({
       _id: id,
       userId: req.user._id
@@ -104,7 +97,6 @@ export const updateRecipient = async (req, res) => {
       });
     }
 
-    // Update fields
     if (email) recipient.email = email.toLowerCase();
     if (name) recipient.name = name.trim();
     if (typeof isActive === 'boolean') recipient.isActive = isActive;
@@ -134,12 +126,10 @@ export const updateRecipient = async (req, res) => {
   }
 };
 
-// Delete an email recipient
 export const deleteRecipient = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Find and delete recipient, verify ownership
     const recipient = await EmailRecipient.findOneAndDelete({
       _id: id,
       userId: req.user._id
@@ -168,10 +158,8 @@ export const deleteRecipient = async (req, res) => {
   }
 };
 
-// Get email service status
 export const getEmailStatus = async (req, res) => {
   try {
-    // Check SMTP configuration
     const smtpConfigured = !!(
       process.env.SMTP_HOST &&
       process.env.SMTP_PORT &&

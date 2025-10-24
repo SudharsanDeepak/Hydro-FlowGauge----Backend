@@ -25,7 +25,6 @@ const flowHistorySchema = new mongoose.Schema({
   }
 }, { timestamps: true })
 
-// Index for faster queries
 flowHistorySchema.index({ timestamp: -1 })
 
 export default mongoose.model("FlowHistory", flowHistorySchema)

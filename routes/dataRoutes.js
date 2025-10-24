@@ -4,7 +4,6 @@ import { getFlowData, getFlowDataLite, controlValve, getHistory } from "../contr
 
 const router = express.Router()
 
-// Use Clerk authentication
 router.get("/flow", clerkAuth, getFlowData)
 router.get("/flow-lite", clerkAuth, getFlowDataLite)
 router.post("/valve", clerkAuth, controlValve)

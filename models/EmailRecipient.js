@@ -28,7 +28,6 @@ const emailRecipientSchema = new mongoose.Schema({
   }
 });
 
-// Compound index to prevent duplicate emails for the same user
 emailRecipientSchema.index({ userId: 1, email: 1 }, { unique: true });
 
 export default mongoose.model("EmailRecipient", emailRecipientSchema);

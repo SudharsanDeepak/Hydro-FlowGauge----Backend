@@ -7,7 +7,6 @@ const THINGSPEAK_CHANNEL_ID = process.env.THINGSPEAK_CHANNEL_ID || "3055434"
 const THINGSPEAK_READ_API_KEY = process.env.THINGSPEAK_READ_API_KEY || "ZUS2JSR26N6Q3STH"
 const THINGSPEAK_WRITE_API_KEY = process.env.THINGSPEAK_WRITE_API_KEY || "RCIQHOPZRFB0M4YK"
 
-// Track if email was already sent to avoid spam
 const emailSentTracker = new Map()
 
 export const getFlowData = async (req, res) => {
@@ -23,7 +22,6 @@ export const getFlowData = async (req, res) => {
     const valveStatus = feed.field2
     const valveStatusText = valveStatus === "1" ? "CLOSED" : "OPEN"
 
-    // Determine event type
     let event = "NORMAL"
     if (valveStatus === "1") {
       event = "VALVE_CLOSED"
@@ -31,7 +29,6 @@ export const getFlowData = async (req, res) => {
       event = "LEAK_DETECTED"
     }
 
-    // Save to history database
     try {
       await FlowHistory.create({
         userId: req.user._id,
@@ -44,21 +41,17 @@ export const getFlowData = async (req, res) => {
       console.error("Error saving history:", historyErr.message)
     }
 
-    // Send email notifications when valve closes automatically
     const userId = req.user._id
     const lastEmailTime = emailSentTracker.get(userId.toString())
     const now = Date.now()
     
     if (valveStatus === "1" && (!lastEmailTime || now - lastEmailTime > 300000)) {
-      // Send email only once every 5 minutes to avoid spam
       
-      // Get all active email recipients for this user
       const recipients = await EmailRecipient.find({ 
         userId: userId, 
         isActive: true 
       }).lean()
 
-      // Prepare email content
       const subject = "🚨 Water Flow Alert - Valve Closed Automatically"
       const textContent = `Hello ${req.user.name},\n\nYour water valve has been automatically closed due to continuous water flow for more than 5 minutes.\n\nFlow Rate: ${flowRate.toFixed(2)} L/min\nValve Status: CLOSED\nTimestamp: ${new Date().toLocaleString()}\n\nPlease check your water system and open the valve from your dashboard if everything is okay.\n\n- HydroFlow Monitor System`
       
@@ -79,7 +72,6 @@ export const getFlowData = async (req, res) => {
         </div>
       `
 
-      // Send email to the logged-in user
       try {
         await sendMail(req.user.email, subject, textContent, htmlContent)
         console.log(`✅ Valve closure alert sent to user: ${req.user.email}`)
@@ -87,7 +79,6 @@ export const getFlowData = async (req, res) => {
         console.error(`❌ Failed to send email to user: ${req.user.email}`, emailErr.message)
       }
 
-      // Send email to all additional recipients
       for (const recipient of recipients) {
         try {
           const recipientText = `Hello ${recipient.name},\n\nThis is an automated alert from HydroFlow Monitor System.\n\nThe water valve has been automatically closed due to continuous water flow for more than 5 minutes.\n\nFlow Rate: ${flowRate.toFixed(2)} L/min\nValve Status: CLOSED\nTimestamp: ${new Date().toLocaleString()}\n\nAccount Owner: ${req.user.name} (${req.user.email})\n\n- HydroFlow Monitor System`
@@ -117,7 +108,6 @@ export const getFlowData = async (req, res) => {
         }
       }
 
-      // Update tracker to prevent spam
       emailSentTracker.set(userId.toString(), now)
       console.log(`📧 Total emails sent: ${recipients.length + 1} (1 user + ${recipients.length} recipients)`)
     }
@@ -153,16 +143,13 @@ export const getFlowDataLite = async (req, res) => {
 
 export const controlValve = async (req, res) => {
   try {
-    const { action } = req.body // action: "open" or "close"
+    const { action } = req.body
     
     if (!action || (action !== "open" && action !== "close")) {
       return res.status(400).json({ message: "Invalid action. Use 'open' or 'close'" })
     }
 
-    // Field 3 is the command field: 1 = OPEN, 0 = CLOSE
     const commandValue = action === "open" ? 1 : 0
-    
-    // Update ThingSpeak Field 3 to send command to ESP32
     const updateUrl = `https://api.thingspeak.com/update?api_key=${THINGSPEAK_WRITE_API_KEY}&field3=${commandValue}`
     const response = await axios.get(updateUrl)
     
@@ -170,7 +157,6 @@ export const controlValve = async (req, res) => {
       return res.status(500).json({ message: "Failed to update ThingSpeak. Please try again." })
     }
 
-    // Save valve control action to history
     try {
       await FlowHistory.create({
         userId: req.user._id,
@@ -203,7 +189,6 @@ export const getHistory = async (req, res) => {
     const page = parseInt(req.query.page) || 1
     const skip = (page - 1) * limit
 
-    // Get all history records (not filtered by user since this is a single-user system)
     const history = await FlowHistory.find({})
       .sort({ timestamp: -1 })
       .limit(limit)

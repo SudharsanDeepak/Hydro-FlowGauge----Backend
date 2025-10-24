@@ -1,19 +1,11 @@
-import { ClerkExpressRequireAuth } from '@clerk/clerk-sdk-node';
+import { clerkMiddleware, requireAuth } from '@clerk/express';
 
-// Middleware to verify Clerk JWT and extract user info
-export const clerkAuth = ClerkExpressRequireAuth({
-  // This will verify the Clerk session token
-});
+export const clerkAuth = requireAuth();
 
-// Middleware to attach user info from Clerk to req.user
 export const attachClerkUser = async (req, res, next) => {
   try {
-    // Clerk auth middleware adds req.auth with user info
     if (req.auth && req.auth.userId) {
-      // Extract user information from Clerk
       const { userId, sessionClaims } = req.auth;
-      
-      // Attach user info to req.user for consistency with existing code
       req.user = {
         _id: userId,
         email: sessionClaims?.email || sessionClaims?.primaryEmailAddress?.emailAddress,

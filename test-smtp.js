@@ -6,7 +6,6 @@ dotenv.config();
 const testEmail = async () => {
   console.log('🧪 Testing SMTP Configuration...\n');
 
-  // Check environment variables
   console.log('📋 Environment Variables:');
   console.log(`SMTP_HOST: ${process.env.SMTP_HOST || '❌ NOT SET'}`);
   console.log(`SMTP_PORT: ${process.env.SMTP_PORT || '❌ NOT SET'}`);
@@ -18,7 +17,6 @@ const testEmail = async () => {
     process.exit(1);
   }
 
-  // Test email
   const testRecipient = process.env.TEST_EMAIL || 'your-email@example.com';
   
   console.log(`📧 Sending test email to: ${testRecipient}\n`);

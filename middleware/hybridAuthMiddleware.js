@@ -1,27 +1,21 @@
-import { clerkClient } from '@clerk/clerk-sdk-node';
+import { createClerkClient } from '@clerk/express';
 
-/**
- * Clerk authentication middleware with proper verification
- * Uses Clerk Secret Key to verify tokens securely
- */
+const clerkClient = createClerkClient({
+  secretKey: process.env.CLERK_SECRET_KEY,
+  publishableKey: process.env.CLERK_PUBLISHABLE_KEY
+});
+
 const clerkAuth = async (req, res, next) => {
   let token;
   
-  // Check for authorization header
   if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
     token = req.headers.authorization.split(" ")[1];
     
     try {
-      // Verify Clerk token with secret key
-      const clerkSession = await clerkClient.verifyToken(token, {
-        secretKey: process.env.CLERK_SECRET_KEY
-      });
+      const clerkSession = await clerkClient.verifyToken(token);
       
       if (clerkSession && clerkSession.sub) {
-        // Get full user details from Clerk
         const userDetails = await clerkClient.users.getUser(clerkSession.sub);
-        
-        // Attach user info to request
         req.user = {
           _id: userDetails.id,
           email: userDetails.emailAddresses[0]?.emailAddress || userDetails.primaryEmailAddress?.emailAddress,

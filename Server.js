@@ -1,6 +1,7 @@
 import express from "express"
 import dotenv from "dotenv"
 import cors from "cors"
+import { clerkMiddleware } from "@clerk/express"
 
 dotenv.config()
 
@@ -13,7 +14,6 @@ const app = express()
 
 connectDB()
 
-// CORS configuration
 const corsOptions = {
   origin: process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',') 
@@ -24,8 +24,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions))
 app.use(express.json())
+app.use(clerkMiddleware())
 
-// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
@@ -38,7 +38,6 @@ app.use("/api/auth", authRoutes)
 app.use("/api/data", dataRoutes)
 app.use("/api/mail", mailRoutes)
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack)
   res.status(500).send('Something broke!')
