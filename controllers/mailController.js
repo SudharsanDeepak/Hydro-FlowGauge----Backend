@@ -167,6 +167,14 @@ export const getEmailStatus = async (req, res) => {
       process.env.SMTP_PASSWORD
     );
 
+    console.log('📧 SMTP Status Check:', {
+      SMTP_HOST: process.env.SMTP_HOST ? '✅ Set' : '❌ Not set',
+      SMTP_PORT: process.env.SMTP_PORT ? '✅ Set' : '❌ Not set',
+      SMTP_LOGIN: process.env.SMTP_LOGIN ? '✅ Set' : '❌ Not set',
+      SMTP_PASSWORD: process.env.SMTP_PASSWORD ? '✅ Set' : '❌ Not set',
+      smtpConfigured
+    });
+
     res.status(200).json({
       success: true,
       status: smtpConfigured ? 'active' : 'not_configured',
