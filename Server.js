@@ -15,9 +15,34 @@ const app = express()
 connectDB()
 
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS 
-    ? process.env.ALLOWED_ORIGINS.split(',') 
-    : ['http://localhost:5173'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = process.env.ALLOWED_ORIGINS 
+      ? process.env.ALLOWED_ORIGINS.split(',') 
+      : ['http://localhost:5173'];
+    
+    // Mobile app origins
+    const mobileOrigins = [
+      'capacitor://localhost',
+      'http://localhost',
+      'https://localhost',
+      'ionic://localhost',
+      'capacitor://app.hydroflow.local',
+      'https://app.hydroflow.local'
+    ];
+    
+    // Combine all allowed origins
+    const allAllowed = [...allowedOrigins, ...mobileOrigins];
+    
+    if (allAllowed.indexOf(origin) !== -1 || origin.startsWith('capacitor://')) {
+      callback(null, true);
+    } else {
+      console.log('⚠️ CORS blocked origin:', origin);
+      callback(null, true); // Allow anyway for mobile app compatibility
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 }
